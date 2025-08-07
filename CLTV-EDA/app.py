@@ -112,12 +112,17 @@ def plot_numerical_distribution(df, column):
 def plot_categorical_distribution(df, column, top_n=10):
     """Plots bar chart for a categorical column."""
     st.subheader(f"Distribution of {column}")
-    value_counts = df[column].value_counts().nlargest(top_n).reset_index()
-    value_counts.columns = [column, 'Count']
-    fig = px.bar(value_counts, x=column, y='Count', title=f'Top {top_n} {column} Distribution',
-                 color=column,
-                 color_discrete_sequence=px.colors.qualitative.Pastel)
-    st.plotly_chart(fig, use_container_width=True)
+    # Ensure the column is not empty before value_counts
+    if not df[column].empty:
+        value_counts = df[column].value_counts().nlargest(top_n).reset_index()
+        value_counts.columns = [column, 'Count']
+        fig = px.bar(value_counts, x=column, y='Count', title=f'Top {top_n} {column} Distribution',
+                     color=column,
+                     color_discrete_sequence=px.colors.qualitative.Pastel)
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.info(f"Categorical column '{column}' is empty, cannot plot distribution.")
+
 
 def perform_eda(df, df_name):
     """Orchestrates EDA for a given DataFrame."""
@@ -133,17 +138,20 @@ def perform_eda(df, df_name):
     categorical_cols = df.select_dtypes(include='object').columns.tolist()
     datetime_cols = df.select_dtypes(include='datetime64').columns.tolist()
 
-    # Filter out ID columns from numerical and categorical lists
+    # Columns to explicitly exclude from plotting, beyond just 'id' keywords
+    excluded_columns_for_plots = ['customer_name', 'email', 'dob']
+
+    # Filter out ID columns and other explicitly excluded columns from numerical and categorical lists
     id_keywords = ['id', 'user_id', 'customer_id', 'transaction_id', 'order_item_id', 'visit_id', 'product_id', 'coupon_id']
     
     filtered_numerical_cols = [
         col for col in numerical_cols
-        if not any(keyword in col.lower() for keyword in id_keywords)
+        if not any(keyword in col.lower() for keyword in id_keywords) and col.lower() not in excluded_columns_for_plots
     ]
     
     filtered_categorical_cols = [
         col for col in categorical_cols
-        if not any(keyword in col.lower() for keyword in id_keywords)
+        if not any(keyword in col.lower() for keyword in id_keywords) and col.lower() not in excluded_columns_for_plots
     ]
 
     # Numerical Columns
@@ -153,7 +161,7 @@ def perform_eda(df, df_name):
             plot_numerical_distribution(df, col)
             st.markdown("---") # Separator
     else:
-        st.info("No numerical columns (excluding IDs) found for distribution analysis.")
+        st.info("No numerical columns (excluding IDs and non-insightful columns) found for distribution analysis.")
 
     # Categorical Columns
     if filtered_categorical_cols:
@@ -162,7 +170,7 @@ def perform_eda(df, df_name):
             plot_categorical_distribution(df, col)
             st.markdown("---") # Separator
     else:
-        st.info("No categorical columns (excluding IDs) found for distribution analysis.")
+        st.info("No categorical columns (excluding IDs and non-insightful columns) found for distribution analysis.")
 
     # Datetime Columns (Time Series Trends)
     if datetime_cols:
